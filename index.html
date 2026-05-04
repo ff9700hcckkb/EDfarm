@@ -1,881 +1,158 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>一德農園銷售數據</title>
-
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    :root {
-      --primary: #0f172a;
-      --secondary: #1e293b;
-      --accent: #3b82f6;
-      --accent-light: #60a5fa;
-      --success: #10b981;
-      --bg: #f8fafc;
-      --card: #ffffff;
-      --text: #0f172a;
-      --text-secondary: #64748b;
-      --border: #e2e8f0;
-      --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.1);
-      --shadow-lg: 0 10px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.05);
-    }
-
-    body {
-      font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      overflow-x: hidden;
-    }
-
-    .container {
-      max-width: 1400px;
-      margin: 0 auto;
-      padding: 2rem;
-    }
-
-    header {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-      color: white;
-      padding: 2rem 0;
-      margin-bottom: 2.5rem;
-      box-shadow: var(--shadow-lg);
-      position: relative;
-      overflow: hidden;
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-    }
-
-    .subtitle {
-      font-size: 1rem;
-      opacity: 0.8;
-      font-weight: 300;
-    }
-
-    .last-updated {
-      margin-top: 1rem;
-      font-size: 0.875rem;
-      opacity: 0.7;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-      gap: 1.5rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .stat-card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 1.75rem;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
-    }
-
-    .stat-label {
-      font-size: 0.875rem;
-      color: var(--text-secondary);
-      font-weight: 500;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0.75rem;
-    }
-
-    .stat-value {
-      font-size: 2.25rem;
-      font-weight: 700;
-      color: var(--primary);
-      letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-    }
-
-    .stat-change {
-      font-size: 0.875rem;
-      color: var(--success);
-      font-weight: 500;
-    }
-
-    .section-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.5rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 2px solid var(--border);
-      gap: 1rem;
-    }
-
-    .section-title {
-      font-size: 1.5rem;
-      font-weight: 600;
-      color: var(--primary);
-    }
-
-    .btn {
-      padding: 0.5rem 1.25rem;
-      border: none;
-      border-radius: 8px;
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
-      font-family: 'IBM Plex Sans', sans-serif;
-    }
-
-    .btn-secondary {
-      background: var(--bg);
-      color: var(--text);
-      border: 1px solid var(--border);
-    }
-
-    .calendar-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-      gap: 1rem;
-      margin-bottom: 2.5rem;
-    }
-
-    .date-card {
-      background: var(--card);
-      border-radius: 10px;
-      padding: 1.25rem;
-      text-align: center;
-      cursor: pointer;
-      border: 2px solid var(--border);
-      transition: all 0.2s;
-    }
-
-    .date-card:hover,
-    .date-card.active {
-      border-color: var(--accent);
-      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-light) 100%);
-      color: white;
-      transform: translateY(-2px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    .date-label {
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-    }
-
-    .date-day {
-      font-size: 1.5rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-    }
-
-    .date-amount {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--accent);
-    }
-
-    .date-card.active .date-label,
-    .date-card.active .date-amount {
-      color: white;
-    }
-
-    .transaction-details {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 2rem;
-      box-shadow: var(--shadow);
-      border: 1px solid var(--border);
-      display: none;
-    }
-
-    .transaction-details.active {
-      display: block;
-    }
-
-    .transaction-summary {
-      color: var(--text-secondary);
-      font-size: 0.95rem;
-      margin-top: 0.25rem;
-    }
-
-    .table-wrap {
-      width: 100%;
-      overflow-x: auto;
-      margin-top: 1.5rem;
-    }
-
-    .transaction-table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-    }
-
-    .transaction-table thead {
-      background: var(--bg);
-    }
-
-    .transaction-table th {
-      padding: 1rem;
-      text-align: left;
-      font-size: 0.8rem;
-      font-weight: 700;
-      color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-    }
-
-    .transaction-table td {
-      padding: 1rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9375rem;
-      vertical-align: top;
-      word-break: break-word;
-      overflow-wrap: anywhere;
-    }
-
-    .transaction-table tbody tr:hover {
-      background: var(--bg);
-    }
-
-    .transaction-table th:nth-child(1),
-    .transaction-table td:nth-child(1) {
-      width: 90px;
-    }
-
-    .transaction-table th:nth-child(2),
-    .transaction-table td:nth-child(2) {
-      width: 120px;
-    }
-
-    .transaction-table th:nth-child(3),
-    .transaction-table td:nth-child(3) {
-      width: 26%;
-    }
-
-    .transaction-table th:nth-child(4),
-    .transaction-table td:nth-child(4) {
-      width: 120px;
-    }
-
-    .transaction-table th:nth-child(5),
-    .transaction-table td:nth-child(5),
-    .transaction-table th:nth-child(6),
-    .transaction-table td:nth-child(6) {
-      width: 120px;
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    .transaction-table th:nth-child(7),
-    .transaction-table td:nth-child(7) {
-      width: 24%;
-    }
-
-    .text-muted {
-      color: var(--text-secondary);
-    }
-
-    .product-cell {
-      font-weight: 600;
-      color: var(--primary);
-      line-height: 1.5;
-    }
-
-    .note-cell {
-      color: var(--text-secondary);
-      line-height: 1.5;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-      cursor: help;
-    }
-
-    .note-cell:hover {
-      -webkit-line-clamp: unset;
-    }
-
-    .amount-cell {
-      font-weight: 700;
-      color: var(--accent);
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .loading {
-      text-align: center;
-      padding: 3rem;
-      color: var(--text-secondary);
-    }
-
-    .spinner {
-      width: 40px;
-      height: 40px;
-      border: 4px solid var(--border);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 1rem;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-
-    .error {
-      background: #fee2e2;
-      color: #991b1b;
-      padding: 1rem 1.5rem;
-      border-radius: 8px;
-      border-left: 4px solid #dc2626;
-      margin-bottom: 1.5rem;
-    }
-
-    .empty-state {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 3rem;
-      color: var(--text-secondary);
-      background: white;
-      border: 1px dashed var(--border);
-      border-radius: 12px;
-    }
-
-    @media (max-width: 768px) {
-      .container {
-        padding: 1rem;
-      }
-
-      h1 {
-        font-size: 2rem;
-      }
-
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .section-header {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-
-      .calendar-grid {
-        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-        gap: 0.75rem;
-      }
-
-      .transaction-details {
-        padding: 1rem;
-      }
-
-      .table-wrap {
-        overflow-x: visible;
-      }
-
-      .transaction-table,
-      .transaction-table thead,
-      .transaction-table tbody,
-      .transaction-table th,
-      .transaction-table td,
-      .transaction-table tr {
-        display: block;
-      }
-
-      .transaction-table {
-        table-layout: auto;
-      }
-
-      .transaction-table thead {
-        display: none;
-      }
-
-      .transaction-table tr {
-        background: white;
-        border: 1px solid var(--border);
-        border-radius: 14px;
-        margin-bottom: 1rem;
-        padding: 1rem;
-        box-shadow: var(--shadow);
-      }
-
-      .transaction-table td {
-        width: 100% !important;
-        border-bottom: none;
-        padding: 0.4rem 0;
-        display: flex;
-        justify-content: space-between;
-        gap: 1rem;
-        text-align: right;
-      }
-
-      .transaction-table td::before {
-        content: attr(data-label);
-        font-weight: 700;
-        color: var(--text-secondary);
-        text-align: left;
-        flex-shrink: 0;
-      }
-
-      .transaction-table td:nth-child(3),
-      .transaction-table td:nth-child(7) {
-        display: block;
-        text-align: left;
-      }
-
-      .transaction-table td:nth-child(3)::before,
-      .transaction-table td:nth-child(7)::before {
-        display: block;
-        margin-bottom: 0.25rem;
-      }
-
-      .note-cell {
-        -webkit-line-clamp: 3;
-      }
-
-      .note-cell:hover {
-        -webkit-line-clamp: unset;
-      }
-
-      .amount-cell {
-        text-align: right;
-      }
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一德農園銷售數據</title>
+
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans&family=JetBrains+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+<style>
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: #f8fafc;
+}
+
+.container {
+  max-width: 1200px;
+  margin: auto;
+  padding: 1rem;
+}
+
+/* 表格 */
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.transaction-table td,
+.transaction-table th {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+/* 🔴 項目紅色 */
+.product-cell {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+/* 手機版 */
+@media (max-width: 768px) {
+
+  .transaction-table,
+  .transaction-table tbody,
+  .transaction-table tr,
+  .transaction-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .transaction-table thead {
+    display: none;
+  }
+
+  .transaction-table tr {
+    background: white;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 12px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  .transaction-table td {
+    display: flex;
+    justify-content: space-between;
+    text-align: right;
+  }
+
+  .transaction-table td::before {
+    content: attr(data-label);
+    font-weight: bold;
+    color: #666;
+    text-align: left;
+  }
+
+  /* ⭐ 修正重點：項目也靠右 */
+  .transaction-table td:nth-child(3) {
+    display: flex;
+    text-align: right;
+  }
+
+}
+</style>
 </head>
 
 <body>
-  <header>
-    <div class="container">
-      <h1>一德農園銷售數據</h1>
-      <p class="subtitle">即時業績追蹤與分析</p>
-      <p class="last-updated" id="lastUpdated">載入中...</p>
-    </div>
-  </header>
 
-  <div class="container">
-    <div id="loadingState" class="loading">
-      <div class="spinner"></div>
-      <p>正在載入數據...</p>
-    </div>
+<div class="container">
 
-    <div id="errorState" style="display:none;"></div>
+<h2>銷售明細</h2>
 
-    <div id="mainContent" style="display:none;">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-label">今日收入</div>
-          <div class="stat-value" id="todayRevenue">NT$ 0</div>
-          <div class="stat-change" id="todayChange"></div>
-        </div>
+<table class="transaction-table">
+<thead>
+<tr>
+<th>時間</th>
+<th>客戶</th>
+<th>項目</th>
+<th>數量</th>
+<th>單價</th>
+<th>總計</th>
+<th>備註</th>
+</tr>
+</thead>
 
-        <div class="stat-card">
-          <div class="stat-label">本週收入</div>
-          <div class="stat-value" id="weekRevenue">NT$ 0</div>
-          <div class="stat-change" id="weekChange"></div>
-        </div>
+<tbody id="tableBody"></tbody>
+</table>
 
-        <div class="stat-card">
-          <div class="stat-label">本月收入</div>
-          <div class="stat-value" id="monthRevenue">NT$ 0</div>
-          <div class="stat-change" id="monthChange"></div>
-        </div>
+</div>
 
-        <div class="stat-card">
-          <div class="stat-label">最大客戶</div>
-          <div class="stat-value" id="topCustomer" style="font-size:1.5rem;">-</div>
-          <div class="stat-change" id="topCustomerAmount"></div>
-        </div>
+<script>
 
-        <div class="stat-card">
-          <div class="stat-label">最暢銷項目</div>
-          <div class="stat-value" id="topProduct" style="font-size:1.5rem;">-</div>
-          <div class="stat-change" id="topProductCount"></div>
-        </div>
-      </div>
+const SHEET_URL = "你的CSV網址";
 
-      <div class="section-header">
-        <h2 class="section-title">每日明細</h2>
-        <button class="btn btn-secondary" onclick="refreshData()">🔄 重新載入</button>
-      </div>
+function parseMoney(v){
+  return parseFloat(String(v||0).replace(/,/g,''))||0;
+}
 
-      <div class="calendar-grid" id="dateGrid"></div>
-
-      <div class="transaction-details" id="transactionDetails">
-        <h3 id="selectedDateTitle">選擇日期以查看明細</h3>
-        <p class="transaction-summary" id="selectedDateSummary"></p>
-
-        <div class="table-wrap">
-          <table class="transaction-table">
-            <thead>
-              <tr>
-                <th>時間</th>
-                <th>客戶</th>
-                <th>項目</th>
-                <th>數量</th>
-                <th>單價</th>
-                <th>總計</th>
-                <th>備註</th>
-              </tr>
-            </thead>
-            <tbody id="transactionTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let rawData = [];
-    let processedData = {
-      byDate: {},
-      stats: {}
-    };
-
-    const SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQwAVfRX9NTFtNBOu-9DjUA_CTifMrCRJmGDvqAhx8sQHK_oWtHFs8ctkjADK73QmV9saRtDBw--1Cb/pub?output=csv';
-
-    function cleanHeader(header) {
-      return String(header || '')
-        .replace(/^\uFEFF/, '')
-        .replace(/^"|"$/g, '')
-        .trim();
-    }
-
-    function cleanText(value) {
-      return String(value || '').trim();
-    }
-
-    function escapeHTML(value) {
-      return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-    }
-
-    function parseMoney(value) {
-      const cleaned = String(value || '0')
-        .replace(/,/g, '')
-        .replace(/NT\$/gi, '')
-        .replace(/\$/g, '')
-        .trim();
-
-      const number = parseFloat(cleaned);
-      return isNaN(number) ? 0 : number;
-    }
-
-    function parseTaiwanDate(value) {
-      if (!value) return null;
-
-      const originalText = String(value).trim();
-
-      let text = originalText
-        .replace('上午', ' AM ')
-        .replace('下午', ' PM ')
-        .replace(/\//g, '-');
-
-      let date = new Date(text);
-
-      if (!isNaN(date.getTime())) return date;
-
-      const match = originalText.match(
-        /(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s*(上午|下午)?\s*(\d{1,2})?:?(\d{1,2})?:?(\d{1,2})?/
-      );
-
-      if (!match) return null;
-
-      let year = Number(match[1]);
-      let month = Number(match[2]) - 1;
-      let day = Number(match[3]);
-      let period = match[4];
-      let hour = Number(match[5] || 0);
-      let minute = Number(match[6] || 0);
-      let second = Number(match[7] || 0);
-
-      if (period === '下午' && hour < 12) hour += 12;
-      if (period === '上午' && hour === 12) hour = 0;
-
-      date = new Date(year, month, day, hour, minute, second);
-
-      return isNaN(date.getTime()) ? null : date;
-    }
-
-    function getLocalDateKey(date) {
-      return (
-        date.getFullYear() + '-' +
-        String(date.getMonth() + 1).padStart(2, '0') + '-' +
-        String(date.getDate()).padStart(2, '0')
-      );
-    }
-
-    async function fetchData() {
-      try {
-        hideError();
-
-        const response = await fetch(SHEET_URL + '&cacheBust=' + Date.now());
-
-        if (!response.ok) {
-          throw new Error('無法載入 Google Sheets CSV，請確認試算表已發布到網路。');
-        }
-
-        const csvText = await response.text();
-
-        Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: cleanHeader,
-          complete: function(results) {
-            rawData = results.data.map(row => {
-              const cleanedRow = {};
-
-              Object.keys(row).forEach(key => {
-                cleanedRow[cleanHeader(key)] = cleanText(row[key]);
-              });
-
-              return cleanedRow;
-            });
-
-            console.log('CSV 表頭：', Object.keys(rawData[0] || {}));
-            console.log('原始資料：', rawData);
-
-            processData();
-            renderDashboard();
-
-            document.getElementById('loadingState').style.display = 'none';
-            document.getElementById('mainContent').style.display = 'block';
-            document.getElementById('lastUpdated').textContent =
-              `最後更新：${new Date().toLocaleString('zh-TW')}`;
-          },
-          error: function(error) {
-            showError('CSV 解析失敗：' + error.message);
-          }
-        });
-
-      } catch (error) {
-        showError(error.message);
+function fetchData(){
+  fetch(SHEET_URL)
+  .then(res=>res.text())
+  .then(csv=>{
+    Papa.parse(csv,{
+      header:true,
+      complete:(res)=>{
+        render(res.data);
       }
-    }
+    })
+  })
+}
 
-    function processData() {
-      processedData.byDate = {};
+function render(data){
+  const tbody = document.getElementById("tableBody");
+  tbody.innerHTML = "";
 
-      const customerTotals = {};
-      const productCounts = {};
+  data.forEach(row=>{
+    const tr = document.createElement("tr");
 
-      rawData.forEach(row => {
-        const timestamp = row['時間戳記'];
-        const customer = row['顧客名字'] || '未填寫';
-        const product = row['賣了什麼'] || '未填寫';
-        const quantity = row['幾包/幾盒/幾斤/幾顆'] || '';
-        const price = parseMoney(row['單價金額']);
-        const note = row['備註'] || '';
-        const total = parseMoney(row['總計']);
+    tr.innerHTML = `
+<td data-label="時間">${row["時間戳記"]||""}</td>
+<td data-label="客戶">${row["顧客名字"]||""}</td>
+<td data-label="項目" class="product-cell">${row["賣了什麼"]||""}</td>
+<td data-label="數量">${row["幾包/幾盒/幾斤/幾顆"]||""}</td>
+<td data-label="單價">NT$ ${parseMoney(row["單價金額"]).toLocaleString()}</td>
+<td data-label="總計">NT$ ${parseMoney(row["總計"]).toLocaleString()}</td>
+<td data-label="備註">${row["備註"]||""}</td>
+`;
 
-        const date = parseTaiwanDate(timestamp);
+    tbody.appendChild(tr);
+  })
+}
 
-        if (!date) {
-          console.warn('略過無效日期資料：', row);
-          return;
-        }
+fetchData();
 
-        const dateKey = getLocalDateKey(date);
+</script>
 
-        if (!processedData.byDate[dateKey]) {
-          processedData.byDate[dateKey] = {
-            transactions: [],
-            total: 0
-          };
-        }
-
-        processedData.byDate[dateKey].transactions.push({
-          time: date.toLocaleTimeString('zh-TW', {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          customer,
-          product,
-          quantity,
-          price,
-          total,
-          note
-        });
-
-        processedData.byDate[dateKey].total += total;
-
-        customerTotals[customer] = (customerTotals[customer] || 0) + total;
-        productCounts[product] = (productCounts[product] || 0) + 1;
-      });
-
-      const now = new Date();
-      const todayKey = getLocalDateKey(now);
-
-      const weekAgo = new Date();
-      weekAgo.setDate(now.getDate() - 7);
-      weekAgo.setHours(0, 0, 0, 0);
-
-      const monthAgo = new Date();
-      monthAgo.setDate(now.getDate() - 30);
-      monthAgo.setHours(0, 0, 0, 0);
-
-      processedData.stats = {
-        today: processedData.byDate[todayKey]?.total || 0,
-
-        week: Object.keys(processedData.byDate)
-          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= weekAgo)
-          .reduce((sum, dateKey) => sum + processedData.byDate[dateKey].total, 0),
-
-        month: Object.keys(processedData.byDate)
-          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= monthAgo)
-          .reduce((sum, dateKey) => sum + processedData.byDate[dateKey].total, 0),
-
-        topCustomer:
-          Object.entries(customerTotals).sort((a, b) => b[1] - a[1])[0] || ['無', 0],
-
-        topProduct:
-          Object.entries(productCounts).sort((a, b) => b[1] - a[1])[0] || ['無', 0]
-      };
-    }
-
-    function renderDashboard() {
-      const stats = processedData.stats;
-
-      document.getElementById('todayRevenue').textContent =
-        `NT$ ${stats.today.toLocaleString()}`;
-
-      document.getElementById('weekRevenue').textContent =
-        `NT$ ${stats.week.toLocaleString()}`;
-
-      document.getElementById('monthRevenue').textContent =
-        `NT$ ${stats.month.toLocaleString()}`;
-
-      document.getElementById('topCustomer').textContent = stats.topCustomer[0];
-
-      document.getElementById('topCustomerAmount').textContent =
-        `累計 NT$ ${stats.topCustomer[1].toLocaleString()}`;
-
-      document.getElementById('topProduct').textContent = stats.topProduct[0];
-
-      document.getElementById('topProductCount').textContent =
-        `售出 ${stats.topProduct[1]} 次`;
-
-      const dateGrid = document.getElementById('dateGrid');
-      dateGrid.innerHTML = '';
-
-      const dates = Object.keys(processedData.byDate).sort().reverse().slice(0, 30);
-
-      if (dates.length === 0) {
-        dateGrid.innerHTML = `
-          <div class="empty-state">
-            目前沒有可顯示的資料。請打開 Console 查看表頭是否正確。
-          </div>
-        `;
-        return;
-      }
-
-      dates.forEach(dateKey => {
-        const dateData = processedData.byDate[dateKey];
-        const date = new Date(dateKey + 'T00:00:00');
-
-        const card = document.createElement('div');
-        card.className = 'date-card';
-
-        card.innerHTML = `
-          <div class="date-label">${date.toLocaleDateString('zh-TW', { weekday: 'short' })}</div>
-          <div class="date-day">${date.getDate()}</div>
-          <div class="date-amount">NT$ ${dateData.total.toLocaleString()}</div>
-        `;
-
-        card.addEventListener('click', () => showDateDetails(dateKey, card));
-
-        dateGrid.appendChild(card);
-      });
-    }
-
-    function showDateDetails(dateKey, cardElement) {
-      const dateData = processedData.byDate[dateKey];
-      const date = new Date(dateKey + 'T00:00:00');
-
-      document.querySelectorAll('.date-card').forEach(card => {
-        card.classList.remove('active');
-      });
-
-      cardElement.classList.add('active');
-
-      document.getElementById('selectedDateTitle').textContent =
-        `${date.toLocaleDateString('zh-TW', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          weekday: 'long'
-        })} - 總計 NT$ ${dateData.total.toLocaleString()}`;
-
-      document.getElementById('selectedDateSummary').textContent =
-        `共 ${dateData.transactions.length} 筆交易`;
-
-      const tbody = document.getElementById('transactionTableBody');
-      tbody.innerHTML = '';
-
-      dateData.transactions.forEach(tx => {
-        const row = document.createElement('tr');
-
-        row.innerHTML = `
-          <td data-label="時間">${escapeHTML(tx.time)}</td>
-          <td data-label="客戶"><strong>${escapeHTML(tx.customer)}</strong></td>
-          <td data-label="項目" class="product-cell">${escapeHTML(tx.product)}</td>
-          <td data-label="數量">${escapeHTML(tx.quantity)}</td>
-          <td data-label="單價" class="amount-cell">NT$ ${tx.price.toLocaleString()}</td>
-          <td data-label="總計" class="amount-cell">NT$ ${tx.total.toLocaleString()}</td>
-          <td data-label="備註" class="note-cell" title="${escapeHTML(tx.note)}">${escapeHTML(tx.note || '-')}</td>
-        `;
-
-        tbody.appendChild(row);
-      });
-
-      document.getElementById('transactionDetails').classList.add('active');
-      document.getElementById('transactionDetails').scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest'
-      });
-    }
-
-    function showError(message) {
-      document.getElementById('loadingState').style.display = 'none';
-
-      const errorState = document.getElementById('errorState');
-      errorState.innerHTML = `<div class="error"><strong>錯誤：</strong> ${escapeHTML(message)}</div>`;
-      errorState.style.display = 'block';
-    }
-
-    function hideError() {
-      const errorState = document.getElementById('errorState');
-      errorState.innerHTML = '';
-      errorState.style.display = 'none';
-    }
-
-    function refreshData() {
-      document.getElementById('mainContent').style.display = 'none';
-      document.getElementById('loadingState').style.display = 'block';
-      fetchData();
-    }
-
-    fetchData();
-
-    setInterval(refreshData, 5 * 60 * 1000);
-  </script>
 </body>
 </html>
