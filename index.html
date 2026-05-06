@@ -89,7 +89,7 @@
       border: 1px solid var(--border);
     }
 
-    /* 使本週與本月卡片看起來可點擊 */
+    /* 點擊回饋樣式 */
     #weekRevenueCard, #monthRevenueCard {
       cursor: pointer;
       transition: transform 0.2s, box-shadow 0.2s;
@@ -692,9 +692,6 @@
               return cleanedRow;
             });
 
-            console.log('CSV 表頭：', Object.keys(rawData[0] || {}));
-            console.log('原始資料：', rawData);
-
             processData();
             renderDashboard();
 
@@ -730,36 +727,20 @@
 
         const date = parseTaiwanDate(timestamp);
 
-        if (!date) {
-          console.warn('略過無效日期資料：', row);
-          return;
-        }
+        if (!date) return;
 
         const dateKey = getLocalDateKey(date);
 
         if (!processedData.byDate[dateKey]) {
-          processedData.byDate[dateKey] = {
-            transactions: [],
-            total: 0
-          };
+          processedData.byDate[dateKey] = { transactions: [], total: 0 };
         }
 
         processedData.byDate[dateKey].transactions.push({
-          fullDate: dateKey, // 新增日期標籤方便跨日過濾
-          time: date.toLocaleTimeString('zh-TW', {
-            hour: '2-digit',
-            minute: '2-digit'
-          }),
-          customer,
-          product,
-          quantity,
-          price,
-          total,
-          note
+          time: date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+          customer, product, quantity, price, total, note
         });
 
         processedData.byDate[dateKey].total += total;
-
         customerTotals[customer] = (customerTotals[customer] || 0) + total;
         productCounts[product] = (productCounts[product] || 0) + 1;
       });
@@ -767,107 +748,76 @@
       const now = new Date();
       const todayKey = getLocalDateKey(now);
 
-      const weekAgo = new Date();
-      weekAgo.setDate(now.getDate() - 7);
-      weekAgo.setHours(0, 0, 0, 0);
+      // 本週計算：找本週日 00:00:00
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      startOfWeek.setHours(0, 0, 0, 0);
 
-      const monthAgo = new Date();
-      monthAgo.setDate(now.getDate() - 30);
-      monthAgo.setHours(0, 0, 0, 0);
+      // 本月計算：找本月 1 號 00:00:00
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
 
       processedData.stats = {
         today: processedData.byDate[todayKey]?.total || 0,
 
         week: Object.keys(processedData.byDate)
-          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= weekAgo)
+          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= startOfWeek)
           .reduce((sum, dateKey) => sum + processedData.byDate[dateKey].total, 0),
 
         month: Object.keys(processedData.byDate)
-          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= monthAgo)
+          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= startOfMonth)
           .reduce((sum, dateKey) => sum + processedData.byDate[dateKey].total, 0),
 
-        topCustomer:
-          Object.entries(customerTotals).sort((a, b) => b[1] - a[1])[0] || ['無', 0],
-
-        topProduct:
-          Object.entries(productCounts).sort((a, b) => b[1] - a[1])[0] || ['無', 0]
+        topCustomer: Object.entries(customerTotals).sort((a, b) => b[1] - a[1])[0] || ['無', 0],
+        topProduct: Object.entries(productCounts).sort((a, b) => b[1] - a[1])[0] || ['無', 0]
       };
     }
 
     function renderDashboard() {
       const stats = processedData.stats;
-
-      document.getElementById('todayRevenue').textContent =
-        `NT$ ${stats.today.toLocaleString()}`;
-
-      document.getElementById('weekRevenue').textContent =
-        `NT$ ${stats.week.toLocaleString()}`;
-
-      document.getElementById('monthRevenue').textContent =
-        `NT$ ${stats.month.toLocaleString()}`;
-
+      document.getElementById('todayRevenue').textContent = `NT$ ${stats.today.toLocaleString()}`;
+      document.getElementById('weekRevenue').textContent = `NT$ ${stats.week.toLocaleString()}`;
+      document.getElementById('monthRevenue').textContent = `NT$ ${stats.month.toLocaleString()}`;
       document.getElementById('topCustomer').textContent = stats.topCustomer[0];
-
-      document.getElementById('topCustomerAmount').textContent =
-        `累計 NT$ ${stats.topCustomer[1].toLocaleString()}`;
-
+      document.getElementById('topCustomerAmount').textContent = `累計 NT$ ${stats.topCustomer[1].toLocaleString()}`;
       document.getElementById('topProduct').textContent = stats.topProduct[0];
-
-      document.getElementById('topProductCount').textContent =
-        `售出 ${stats.topProduct[1]} 次`;
+      document.getElementById('topProductCount').textContent = `售出 ${stats.topProduct[1]} 次`;
 
       const dateGrid = document.getElementById('dateGrid');
       dateGrid.innerHTML = '';
-
       const dates = Object.keys(processedData.byDate).sort().reverse().slice(0, 30);
-
-      if (dates.length === 0) {
-        dateGrid.innerHTML = `
-          <div class="empty-state">
-            目前沒有可顯示的資料。請打開 Console 查看表頭是否正確。
-          </div>
-        `;
-        return;
-      }
 
       dates.forEach(dateKey => {
         const dateData = processedData.byDate[dateKey];
         const date = new Date(dateKey + 'T00:00:00');
-
         const card = document.createElement('div');
         card.className = 'date-card';
-
         card.innerHTML = `
           <div class="date-label">${date.toLocaleDateString('zh-TW', { weekday: 'short' })}</div>
           <div class="date-day">${date.getDate()}</div>
           <div class="date-amount">NT$ ${dateData.total.toLocaleString()}</div>
         `;
-
         card.addEventListener('click', () => showDateDetails(dateKey, card));
-
         dateGrid.appendChild(card);
       });
     }
 
-    // 新增：顯示週或月的明細功能
     function showRangeDetails(range) {
       const now = new Date();
-      const cutoff = new Date();
-      let titlePrefix = "";
-      
+      let cutoff;
+      let titlePrefix;
+
       if (range === 'week') {
-        cutoff.setDate(now.getDate() - 7);
-        titlePrefix = "最近 7 天 (本週)";
-      } else if (range === 'month') {
-        cutoff.setDate(now.getDate() - 30);
-        titlePrefix = "最近 30 天 (本月)";
+        cutoff = new Date(now);
+        cutoff.setDate(now.getDate() - now.getDay());
+        titlePrefix = "本週明細 (週日至今)";
+      } else {
+        cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
+        titlePrefix = `${now.getMonth() + 1} 月份明細`;
       }
       cutoff.setHours(0, 0, 0, 0);
 
-      // 移除日期卡片的啟動狀態
       document.querySelectorAll('.date-card').forEach(card => card.classList.remove('active'));
 
-      // 篩選符合範圍的交易
       let filteredTransactions = [];
       let totalAmount = 0;
 
@@ -877,7 +827,6 @@
         .forEach(dateKey => {
           const dayData = processedData.byDate[dateKey];
           totalAmount += dayData.total;
-          // 合併明細時加入日期資訊
           dayData.transactions.forEach(tx => {
             filteredTransactions.push({
               ...tx,
@@ -892,30 +841,18 @@
     function showDateDetails(dateKey, cardElement) {
       const dateData = processedData.byDate[dateKey];
       const date = new Date(dateKey + 'T00:00:00');
-
       document.querySelectorAll('.date-card').forEach(card => card.classList.remove('active'));
       cardElement.classList.add('active');
-
-      const title = `${date.toLocaleDateString('zh-TW', {
-          year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
-      })}`;
-
-      // 單日顯示不需要重複日期，直接用原始 tx.time
-      const txs = dateData.transactions.map(tx => ({ ...tx, displayTime: tx.time }));
-      renderTable(title, dateData.total, txs);
+      const title = date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+      renderTable(title, dateData.total, dateData.transactions.map(tx => ({ ...tx, displayTime: tx.time })));
     }
 
-    // 抽離渲染表格邏輯
     function renderTable(title, total, transactions) {
       document.getElementById('selectedDateTitle').textContent = `${title} - 總計 NT$ ${total.toLocaleString()}`;
       document.getElementById('selectedDateSummary').textContent = `共 ${transactions.length} 筆交易`;
-
       const tbody = document.getElementById('transactionTableBody');
-      tbody.innerHTML = '';
-
-      transactions.forEach(tx => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
+      tbody.innerHTML = transactions.map(tx => `
+        <tr>
           <td data-label="時間">${escapeHTML(tx.displayTime)}</td>
           <td data-label="客戶"><strong>${escapeHTML(tx.customer)}</strong></td>
           <td data-label="項目" class="product-cell">${escapeHTML(tx.product)}</td>
@@ -923,20 +860,14 @@
           <td data-label="單價" class="amount-cell">NT$ ${tx.price.toLocaleString()}</td>
           <td data-label="總計" class="amount-cell">NT$ ${tx.total.toLocaleString()}</td>
           <td data-label="備註" class="note-cell" title="${escapeHTML(tx.note)}">${escapeHTML(tx.note || '-')}</td>
-        `;
-        tbody.appendChild(row);
-      });
-
+        </tr>
+      `).join('');
       document.getElementById('transactionDetails').classList.add('active');
-      document.getElementById('transactionDetails').scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest'
-      });
+      document.getElementById('transactionDetails').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function showError(message) {
       document.getElementById('loadingState').style.display = 'none';
-
       const errorState = document.getElementById('errorState');
       errorState.innerHTML = `<div class="error"><strong>錯誤：</strong> ${escapeHTML(message)}</div>`;
       errorState.style.display = 'block';
@@ -944,7 +875,6 @@
 
     function hideError() {
       const errorState = document.getElementById('errorState');
-      errorState.innerHTML = '';
       errorState.style.display = 'none';
     }
 
@@ -955,7 +885,6 @@
     }
 
     fetchData();
-
     setInterval(refreshData, 5 * 60 * 1000);
   </script>
 </body>
