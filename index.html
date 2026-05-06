@@ -89,6 +89,17 @@
       border: 1px solid var(--border);
     }
 
+    /* 使本週與本月卡片看起來可點擊 */
+    #weekRevenueCard, #monthRevenueCard {
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    #weekRevenueCard:hover, #monthRevenueCard:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+      border-color: var(--accent);
+    }
+
     .stat-card:nth-child(1),
     .stat-card:nth-child(2),
     .stat-card:nth-child(3) {
@@ -514,13 +525,13 @@
           <div class="stat-change" id="todayChange"></div>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card" id="weekRevenueCard" onclick="showRangeDetails('week')">
           <div class="stat-label">本週收入</div>
           <div class="stat-value" id="weekRevenue">NT$ 0</div>
           <div class="stat-change" id="weekChange"></div>
         </div>
 
-        <div class="stat-card">
+        <div class="stat-card" id="monthRevenueCard" onclick="showRangeDetails('month')">
           <div class="stat-label">本月收入</div>
           <div class="stat-value" id="monthRevenue">NT$ 0</div>
           <div class="stat-change" id="monthChange"></div>
@@ -734,6 +745,7 @@
         }
 
         processedData.byDate[dateKey].transactions.push({
+          fullDate: dateKey, // 新增日期標籤方便跨日過濾
           time: date.toLocaleTimeString('zh-TW', {
             hour: '2-digit',
             minute: '2-digit'
@@ -837,35 +849,74 @@
       });
     }
 
+    // 新增：顯示週或月的明細功能
+    function showRangeDetails(range) {
+      const now = new Date();
+      const cutoff = new Date();
+      let titlePrefix = "";
+      
+      if (range === 'week') {
+        cutoff.setDate(now.getDate() - 7);
+        titlePrefix = "最近 7 天 (本週)";
+      } else if (range === 'month') {
+        cutoff.setDate(now.getDate() - 30);
+        titlePrefix = "最近 30 天 (本月)";
+      }
+      cutoff.setHours(0, 0, 0, 0);
+
+      // 移除日期卡片的啟動狀態
+      document.querySelectorAll('.date-card').forEach(card => card.classList.remove('active'));
+
+      // 篩選符合範圍的交易
+      let filteredTransactions = [];
+      let totalAmount = 0;
+
+      Object.keys(processedData.byDate)
+        .filter(dateKey => new Date(dateKey + 'T00:00:00') >= cutoff)
+        .sort((a, b) => new Date(b) - new Date(a))
+        .forEach(dateKey => {
+          const dayData = processedData.byDate[dateKey];
+          totalAmount += dayData.total;
+          // 合併明細時加入日期資訊
+          dayData.transactions.forEach(tx => {
+            filteredTransactions.push({
+              ...tx,
+              displayTime: `${dateKey.split('-').slice(1).join('/')} ${tx.time}`
+            });
+          });
+        });
+
+      renderTable(titlePrefix, totalAmount, filteredTransactions);
+    }
+
     function showDateDetails(dateKey, cardElement) {
       const dateData = processedData.byDate[dateKey];
       const date = new Date(dateKey + 'T00:00:00');
 
-      document.querySelectorAll('.date-card').forEach(card => {
-        card.classList.remove('active');
-      });
-
+      document.querySelectorAll('.date-card').forEach(card => card.classList.remove('active'));
       cardElement.classList.add('active');
 
-      document.getElementById('selectedDateTitle').textContent =
-        `${date.toLocaleDateString('zh-TW', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          weekday: 'long'
-        })} - 總計 NT$ ${dateData.total.toLocaleString()}`;
+      const title = `${date.toLocaleDateString('zh-TW', {
+          year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+      })}`;
 
-      document.getElementById('selectedDateSummary').textContent =
-        `共 ${dateData.transactions.length} 筆交易`;
+      // 單日顯示不需要重複日期，直接用原始 tx.time
+      const txs = dateData.transactions.map(tx => ({ ...tx, displayTime: tx.time }));
+      renderTable(title, dateData.total, txs);
+    }
+
+    // 抽離渲染表格邏輯
+    function renderTable(title, total, transactions) {
+      document.getElementById('selectedDateTitle').textContent = `${title} - 總計 NT$ ${total.toLocaleString()}`;
+      document.getElementById('selectedDateSummary').textContent = `共 ${transactions.length} 筆交易`;
 
       const tbody = document.getElementById('transactionTableBody');
       tbody.innerHTML = '';
 
-      dateData.transactions.forEach(tx => {
+      transactions.forEach(tx => {
         const row = document.createElement('tr');
-
         row.innerHTML = `
-          <td data-label="時間">${escapeHTML(tx.time)}</td>
+          <td data-label="時間">${escapeHTML(tx.displayTime)}</td>
           <td data-label="客戶"><strong>${escapeHTML(tx.customer)}</strong></td>
           <td data-label="項目" class="product-cell">${escapeHTML(tx.product)}</td>
           <td data-label="數量">${escapeHTML(tx.quantity)}</td>
@@ -873,7 +924,6 @@
           <td data-label="總計" class="amount-cell">NT$ ${tx.total.toLocaleString()}</td>
           <td data-label="備註" class="note-cell" title="${escapeHTML(tx.note)}">${escapeHTML(tx.note || '-')}</td>
         `;
-
         tbody.appendChild(row);
       });
 
