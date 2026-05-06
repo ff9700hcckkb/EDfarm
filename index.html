@@ -74,19 +74,23 @@
       font-family: 'JetBrains Mono', monospace;
     }
 
+    /* 統計網格佈局修改 */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
-      gap: 1rem;
+      gap: 1.25rem;
       margin-bottom: 2rem;
     }
 
     .stat-card {
       background: var(--card);
       border-radius: 12px;
-      padding: 1.1rem 1.25rem;
+      padding: 1.25rem;
       box-shadow: var(--shadow);
       border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
     }
 
     /* 點擊回饋樣式 */
@@ -100,15 +104,18 @@
       border-color: var(--accent);
     }
 
+    /* 前 4 個卡片採 2x2 佈局 (佔據 4 欄寬度) */
     .stat-card:nth-child(1),
     .stat-card:nth-child(2),
-    .stat-card:nth-child(3) {
+    .stat-card:nth-child(3),
+    .stat-card:nth-child(4) {
       grid-column: span 2;
     }
 
-    .stat-card:nth-child(4),
-    .stat-card:nth-child(5) {
-      grid-column: span 3;
+    /* 最後 2 個卡片採 2x1 佈局 (佔據剩餘 2 欄寬度) */
+    .stat-card:nth-child(5),
+    .stat-card:nth-child(6) {
+      grid-column: span 2;
     }
 
     .stat-label {
@@ -117,11 +124,11 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      margin-bottom: 0.45rem;
+      margin-bottom: 0.5rem;
     }
 
     .stat-value {
-      font-size: 1.55rem;
+      font-size: 1.6rem;
       font-weight: 700;
       color: var(--primary);
       letter-spacing: -0.02em;
@@ -130,7 +137,7 @@
     }
 
     .stat-change {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
       color: var(--success);
       font-weight: 500;
     }
@@ -376,21 +383,24 @@
       border-radius: 12px;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 1024px) {
       .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(4, 1fr);
       }
-
-      .stat-card:nth-child(1),
-      .stat-card:nth-child(2),
-      .stat-card:nth-child(3),
-      .stat-card:nth-child(4),
-      .stat-card:nth-child(5) {
-        grid-column: span 1;
+      .stat-card:nth-child(5),
+      .stat-card:nth-child(6) {
+        grid-column: span 2;
       }
     }
 
     @media (max-width: 768px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .stat-card {
+        grid-column: span 1 !important;
+      }
+      
       .container {
         padding: 1rem;
       }
@@ -475,26 +485,8 @@
         text-align: right;
       }
 
-      .note-cell {
-        -webkit-line-clamp: 3;
-      }
-
-      .note-cell:hover {
-        -webkit-line-clamp: unset;
-      }
-
       .amount-cell {
         text-align: right;
-      }
-    }
-
-    @media (max-width: 520px) {
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .stat-value {
-        font-size: 1.45rem;
       }
     }
   </style>
@@ -519,6 +511,7 @@
 
     <div id="mainContent" style="display:none;">
       <div class="stats-grid">
+        <!-- 2x2 指標矩陣 -->
         <div class="stat-card">
           <div class="stat-label">今日收入</div>
           <div class="stat-value" id="todayRevenue">NT$ 0</div>
@@ -526,17 +519,24 @@
         </div>
 
         <div class="stat-card" id="weekRevenueCard" onclick="showRangeDetails('week')">
-          <div class="stat-label">本週收入</div>
+          <div class="stat-label">本週收入 (週日起始)</div>
           <div class="stat-value" id="weekRevenue">NT$ 0</div>
           <div class="stat-change" id="weekChange"></div>
         </div>
 
         <div class="stat-card" id="monthRevenueCard" onclick="showRangeDetails('month')">
-          <div class="stat-label">本月收入</div>
+          <div class="stat-label">本月收入 (當前月份)</div>
           <div class="stat-value" id="monthRevenue">NT$ 0</div>
           <div class="stat-change" id="monthChange"></div>
         </div>
 
+        <div class="stat-card">
+          <div class="stat-label">累計總收入</div>
+          <div class="stat-value" id="totalRevenue">NT$ 0</div>
+          <div class="stat-change">不限日期累計</div>
+        </div>
+
+        <!-- 2x1 垂直指標 -->
         <div class="stat-card">
           <div class="stat-label">最大客戶</div>
           <div class="stat-value" id="topCustomer">-</div>
@@ -623,150 +623,80 @@
 
     function parseTaiwanDate(value) {
       if (!value) return null;
-
       const originalText = String(value).trim();
-
-      let text = originalText
-        .replace('上午', ' AM ')
-        .replace('下午', ' PM ')
-        .replace(/\//g, '-');
-
+      let text = originalText.replace('上午', ' AM ').replace('下午', ' PM ').replace(/\//g, '-');
       let date = new Date(text);
-
       if (!isNaN(date.getTime())) return date;
-
-      const match = originalText.match(
-        /(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s*(上午|下午)?\s*(\d{1,2})?:?(\d{1,2})?:?(\d{1,2})?/
-      );
-
+      const match = originalText.match(/(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})\s*(上午|下午)?\s*(\d{1,2})?:?(\d{1,2})?:?(\d{1,2})?/);
       if (!match) return null;
-
-      let year = Number(match[1]);
-      let month = Number(match[2]) - 1;
-      let day = Number(match[3]);
-      let period = match[4];
-      let hour = Number(match[5] || 0);
-      let minute = Number(match[6] || 0);
-      let second = Number(match[7] || 0);
-
+      let year = Number(match[1]), month = Number(match[2]) - 1, day = Number(match[3]), period = match[4], hour = Number(match[5] || 0), minute = Number(match[6] || 0), second = Number(match[7] || 0);
       if (period === '下午' && hour < 12) hour += 12;
       if (period === '上午' && hour === 12) hour = 0;
-
       date = new Date(year, month, day, hour, minute, second);
-
       return isNaN(date.getTime()) ? null : date;
     }
 
     function getLocalDateKey(date) {
-      return (
-        date.getFullYear() + '-' +
-        String(date.getMonth() + 1).padStart(2, '0') + '-' +
-        String(date.getDate()).padStart(2, '0')
-      );
+      return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0') + '-' + String(date.getDate()).padStart(2, '0');
     }
 
     async function fetchData() {
       try {
         hideError();
-
         const response = await fetch(SHEET_URL + '&cacheBust=' + Date.now());
-
-        if (!response.ok) {
-          throw new Error('無法載入 Google Sheets CSV，請確認試算表已發布到網路。');
-        }
-
+        if (!response.ok) throw new Error('無法載入數據，請確認試算表已發布。');
         const csvText = await response.text();
-
         Papa.parse(csvText, {
-          header: true,
-          skipEmptyLines: true,
-          transformHeader: cleanHeader,
+          header: true, skipEmptyLines: true, transformHeader: cleanHeader,
           complete: function(results) {
             rawData = results.data.map(row => {
               const cleanedRow = {};
-
-              Object.keys(row).forEach(key => {
-                cleanedRow[cleanHeader(key)] = cleanText(row[key]);
-              });
-
+              Object.keys(row).forEach(key => { cleanedRow[cleanHeader(key)] = cleanText(row[key]); });
               return cleanedRow;
             });
-
             processData();
             renderDashboard();
-
             document.getElementById('loadingState').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
-            document.getElementById('lastUpdated').textContent =
-              `最後更新：${new Date().toLocaleString('zh-TW')}`;
+            document.getElementById('lastUpdated').textContent = `最後更新：${new Date().toLocaleString('zh-TW')}`;
           },
-          error: function(error) {
-            showError('CSV 解析失敗：' + error.message);
-          }
+          error: (error) => showError('CSV 解析失敗：' + error.message)
         });
-
-      } catch (error) {
-        showError(error.message);
-      }
+      } catch (error) { showError(error.message); }
     }
 
     function processData() {
       processedData.byDate = {};
-
       const customerTotals = {};
       const productCounts = {};
+      let absoluteTotal = 0;
 
       rawData.forEach(row => {
-        const timestamp = row['時間戳記'];
-        const customer = row['顧客名字'] || '未填寫';
-        const product = row['賣了什麼'] || '未填寫';
-        const quantity = row['幾包/幾盒/幾斤/幾顆'] || '';
-        const price = parseMoney(row['單價金額']);
-        const note = row['備註'] || '';
-        const total = parseMoney(row['總計']);
-
+        const timestamp = row['時間戳記'], customer = row['顧客名字'] || '未填寫', product = row['賣了什麼'] || '未填寫',
+              quantity = row['幾包/幾盒/幾斤/幾顆'] || '', price = parseMoney(row['單價金額']), note = row['備註'] || '', total = parseMoney(row['總計']);
         const date = parseTaiwanDate(timestamp);
-
         if (!date) return;
-
         const dateKey = getLocalDateKey(date);
-
-        if (!processedData.byDate[dateKey]) {
-          processedData.byDate[dateKey] = { transactions: [], total: 0 };
-        }
-
-        processedData.byDate[dateKey].transactions.push({
-          time: date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
-          customer, product, quantity, price, total, note
-        });
-
+        if (!processedData.byDate[dateKey]) processedData.byDate[dateKey] = { transactions: [], total: 0 };
+        processedData.byDate[dateKey].transactions.push({ time: date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }), customer, product, quantity, price, total, note });
         processedData.byDate[dateKey].total += total;
+        absoluteTotal += total;
         customerTotals[customer] = (customerTotals[customer] || 0) + total;
         productCounts[product] = (productCounts[product] || 0) + 1;
       });
 
       const now = new Date();
       const todayKey = getLocalDateKey(now);
-
-      // 本週計算：找本週日 00:00:00
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
       startOfWeek.setHours(0, 0, 0, 0);
-
-      // 本月計算：找本月 1 號 00:00:00
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
 
       processedData.stats = {
         today: processedData.byDate[todayKey]?.total || 0,
-
-        week: Object.keys(processedData.byDate)
-          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= startOfWeek)
-          .reduce((sum, dateKey) => sum + processedData.byDate[dateKey].total, 0),
-
-        month: Object.keys(processedData.byDate)
-          .filter(dateKey => new Date(dateKey + 'T00:00:00') >= startOfMonth)
-          .reduce((sum, dateKey) => sum + processedData.byDate[dateKey].total, 0),
-
+        week: Object.keys(processedData.byDate).filter(dk => new Date(dk + 'T00:00:00') >= startOfWeek).reduce((sum, dk) => sum + processedData.byDate[dk].total, 0),
+        month: Object.keys(processedData.byDate).filter(dk => new Date(dk + 'T00:00:00') >= startOfMonth).reduce((sum, dk) => sum + processedData.byDate[dk].total, 0),
+        absolute: absoluteTotal,
         topCustomer: Object.entries(customerTotals).sort((a, b) => b[1] - a[1])[0] || ['無', 0],
         topProduct: Object.entries(productCounts).sort((a, b) => b[1] - a[1])[0] || ['無', 0]
       };
@@ -777,6 +707,7 @@
       document.getElementById('todayRevenue').textContent = `NT$ ${stats.today.toLocaleString()}`;
       document.getElementById('weekRevenue').textContent = `NT$ ${stats.week.toLocaleString()}`;
       document.getElementById('monthRevenue').textContent = `NT$ ${stats.month.toLocaleString()}`;
+      document.getElementById('totalRevenue').textContent = `NT$ ${stats.absolute.toLocaleString()}`;
       document.getElementById('topCustomer').textContent = stats.topCustomer[0];
       document.getElementById('topCustomerAmount').textContent = `累計 NT$ ${stats.topCustomer[1].toLocaleString()}`;
       document.getElementById('topProduct').textContent = stats.topProduct[0];
@@ -785,17 +716,11 @@
       const dateGrid = document.getElementById('dateGrid');
       dateGrid.innerHTML = '';
       const dates = Object.keys(processedData.byDate).sort().reverse().slice(0, 30);
-
       dates.forEach(dateKey => {
-        const dateData = processedData.byDate[dateKey];
-        const date = new Date(dateKey + 'T00:00:00');
+        const dateData = processedData.byDate[dateKey], date = new Date(dateKey + 'T00:00:00');
         const card = document.createElement('div');
         card.className = 'date-card';
-        card.innerHTML = `
-          <div class="date-label">${date.toLocaleDateString('zh-TW', { weekday: 'short' })}</div>
-          <div class="date-day">${date.getDate()}</div>
-          <div class="date-amount">NT$ ${dateData.total.toLocaleString()}</div>
-        `;
+        card.innerHTML = `<div class="date-label">${date.toLocaleDateString('zh-TW', { weekday: 'short' })}</div><div class="date-day">${date.getDate()}</div><div class="date-amount">NT$ ${dateData.total.toLocaleString()}</div>`;
         card.addEventListener('click', () => showDateDetails(dateKey, card));
         dateGrid.appendChild(card);
       });
@@ -803,48 +728,30 @@
 
     function showRangeDetails(range) {
       const now = new Date();
-      let cutoff;
-      let titlePrefix;
-
+      let cutoff, titlePrefix;
       if (range === 'week') {
-        cutoff = new Date(now);
-        cutoff.setDate(now.getDate() - now.getDay());
+        cutoff = new Date(now); cutoff.setDate(now.getDate() - now.getDay());
         titlePrefix = "本週明細 (週日至今)";
       } else {
         cutoff = new Date(now.getFullYear(), now.getMonth(), 1);
         titlePrefix = `${now.getMonth() + 1} 月份明細`;
       }
       cutoff.setHours(0, 0, 0, 0);
-
       document.querySelectorAll('.date-card').forEach(card => card.classList.remove('active'));
-
-      let filteredTransactions = [];
-      let totalAmount = 0;
-
-      Object.keys(processedData.byDate)
-        .filter(dateKey => new Date(dateKey + 'T00:00:00') >= cutoff)
-        .sort((a, b) => new Date(b) - new Date(a))
-        .forEach(dateKey => {
-          const dayData = processedData.byDate[dateKey];
-          totalAmount += dayData.total;
-          dayData.transactions.forEach(tx => {
-            filteredTransactions.push({
-              ...tx,
-              displayTime: `${dateKey.split('-').slice(1).join('/')} ${tx.time}`
-            });
-          });
-        });
-
+      let filteredTransactions = [], totalAmount = 0;
+      Object.keys(processedData.byDate).filter(dk => new Date(dk + 'T00:00:00') >= cutoff).sort((a, b) => new Date(b) - new Date(a)).forEach(dk => {
+        const dayData = processedData.byDate[dk];
+        totalAmount += dayData.total;
+        dayData.transactions.forEach(tx => { filteredTransactions.push({ ...tx, displayTime: `${dk.split('-').slice(1).join('/')} ${tx.time}` }); });
+      });
       renderTable(titlePrefix, totalAmount, filteredTransactions);
     }
 
     function showDateDetails(dateKey, cardElement) {
-      const dateData = processedData.byDate[dateKey];
-      const date = new Date(dateKey + 'T00:00:00');
+      const dateData = processedData.byDate[dateKey], date = new Date(dateKey + 'T00:00:00');
       document.querySelectorAll('.date-card').forEach(card => card.classList.remove('active'));
       cardElement.classList.add('active');
-      const title = date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
-      renderTable(title, dateData.total, dateData.transactions.map(tx => ({ ...tx, displayTime: tx.time })));
+      renderTable(date.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' }), dateData.total, dateData.transactions.map(tx => ({ ...tx, displayTime: tx.time })));
     }
 
     function renderTable(title, total, transactions) {
@@ -873,16 +780,8 @@
       errorState.style.display = 'block';
     }
 
-    function hideError() {
-      const errorState = document.getElementById('errorState');
-      errorState.style.display = 'none';
-    }
-
-    function refreshData() {
-      document.getElementById('mainContent').style.display = 'none';
-      document.getElementById('loadingState').style.display = 'block';
-      fetchData();
-    }
+    function hideError() { document.getElementById('errorState').style.display = 'none'; }
+    function refreshData() { document.getElementById('mainContent').style.display = 'none'; document.getElementById('loadingState').style.display = 'block'; fetchData(); }
 
     fetchData();
     setInterval(refreshData, 5 * 60 * 1000);
